@@ -24,6 +24,14 @@ class SupportTeamForm
                     ->label('Email address')
                     ->email()
                     ->required(),
+                TextInput::make('ticket_count')
+                    ->label('Ticket Count')
+                    ->email()
+                    ->required(),
+                TextInput::make('max_ticket_capacity')
+                    ->label('Ticket Capacity')
+                    ->email()
+                    ->required(),
                 Textarea::make('profile_picture')
                     ->required()
                     ->columnSpanFull(),

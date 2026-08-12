@@ -46,7 +46,7 @@ class SupportTeamSeeder extends Seeder
                 'email' => strtolower($firstName . '.' . $lastName . '@example.com'),
                 'profile_picture' => 'profile_pictures/' . Str::slug($member) . '.jpg',
                 'ticket_category_id' => $specialties[array_rand($specialties)],
-                'available' => (bool) rand(0, 1),
+                'available' => 1,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);

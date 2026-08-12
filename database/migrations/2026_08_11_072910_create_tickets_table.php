@@ -18,6 +18,7 @@ return new class extends Migration
             $table->enum("priority" , ["LOW" , "HIGH" , "MODERATE"])->default("LOW");
             $table->foreignId("equipmentId")->references('id')->on("equipments");
             $table->foreignId("departmentId")->references('id')->on("departments");
+            $table->foreignId("deskId")->references("id")->on('desks');
             $table->text("description");
             $table->json("attachment_url");
             $table->enum("status" , ["OPEN" , "CLOSED" , "IN-PROGRESS" , "RESOLVED"])->default("OPEN");

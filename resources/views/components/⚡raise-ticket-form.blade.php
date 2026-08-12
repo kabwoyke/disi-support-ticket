@@ -9,6 +9,7 @@ use App\Models\TicketCategory;
 use App\Models\Equipment;
 use App\Models\SupportTeam;
 use App\Models\TicketAssignment;
+use App\Models\Desk;
 new class extends Component
 {
     use WithFileUploads;
@@ -31,8 +32,12 @@ new class extends Component
     #[Validate('required|min:10')]
     public string $description = '';
 
+    #[Validate('required')]
+    public string $desk = '';
+
     #[Validate(['attachments.*' => 'nullable|file|max:10240|mimes:png,jpg,jpeg,pdf'])]
     public array $attachments = [];
+
 
 
 
@@ -67,6 +72,7 @@ new class extends Component
         'equipmentId'   => $this->equipment ?: null,
         'description'    => $this->description,
         'attachment_url' => json_encode($storedPaths),
+        'deskId' => $this->desk
     ]);
 
 
@@ -106,6 +112,7 @@ new class extends Component
 
     public function render(){
         $departments = Department::all();
+        $desks = Desk::all();
         $categories = TicketCategory::all();
         $equipments = $this->category
             ? Equipment::where('categoryId', $this->category)->get()
@@ -114,6 +121,7 @@ new class extends Component
             'departments' => $departments,
             'categories' => $categories,
             'equipments' => $equipments,
+            'desks' => $desks
         ]);
     }
 };
@@ -227,6 +235,25 @@ new class extends Component
                     <p class="text-xs text-error mt-1">{{ $message }}</p>
                 @enderror
             </div>
+        </div>
+
+        <div class="form-control w-full">
+                <label for="equipment" class="label text-sm font-medium text-base-content mb-1">Desk</label>
+                <select
+                    id="desk"
+                    wire:model="desk"
+                    class="select select-bordered w-full text-sm focus:select-primary @error('desk') select-error @enderror"
+                >
+                    <option value="">Select Desk</option>
+                    @foreach ($desks as  $desk)
+
+                    <option value="{{ $desk->id }}">{{ $desk->desk_name }}</option>
+
+                    @endforeach
+                </select>
+                @error('desk')
+                    <p class="text-xs text-error mt-1">{{ $message }}</p>
+                @enderror
         </div>
 
         <!-- Description -->

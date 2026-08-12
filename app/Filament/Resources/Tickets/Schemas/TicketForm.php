@@ -38,6 +38,12 @@ class TicketForm
                     ->relationship('department' , 'department_name')
                     ->label('Department')
                     ->required(),
+
+                Select::make('deskId')
+                    ->relationship('desk' , 'desk_name')
+                    ->preload()
+                    ->label('Desk')
+                    ->required(),
                 Textarea::make('description')
                     ->required()
                     ->columnSpanFull(),

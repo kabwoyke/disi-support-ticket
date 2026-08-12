@@ -17,6 +17,7 @@ class Ticket extends Model
     'departmentId',
     'description',
     'attachment_url',
+    'deskId',
 ];
 
 
@@ -38,6 +39,10 @@ public function department(): BelongsTo
 
 public function ticket_assignment(){
     return $this->hasMany(TicketAssignment::class , 'ticketId');
+}
+
+public function desk(){
+    return $this->belongsTo(Desk::class , 'deskId');
 }
 
 }
