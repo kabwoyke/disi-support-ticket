@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class SupportTeamSeeder extends Seeder
@@ -25,6 +26,10 @@ class SupportTeamSeeder extends Seeder
             'Ivene Kamau',
         ];
 
+        $passwords = [
+            "123456",
+        ];
+
         $specialties = [
             1,
             2
@@ -36,6 +41,7 @@ class SupportTeamSeeder extends Seeder
             DB::table('support_teams')->insert([
                 'first_name' => $firstName,
                 'last_name' => $lastName,
+                'password' => Hash::make($passwords[0]),
                 'phone_number' => '+2547' . rand(10000000, 99999999),
                 'email' => strtolower($firstName . '.' . $lastName . '@example.com'),
                 'profile_picture' => 'profile_pictures/' . Str::slug($member) . '.jpg',

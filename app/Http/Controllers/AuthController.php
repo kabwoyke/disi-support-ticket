@@ -24,4 +24,12 @@ class AuthController extends Controller
         return redirect()->route('login');
 
     }
+
+    public function support_logout(){
+
+        auth()->guard('support')->logout();
+        request()->session()->invalidate();
+        request()->session()->regenerateToken();
+        return redirect()->route('ict-login');
+    }
 }

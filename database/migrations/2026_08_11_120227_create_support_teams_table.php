@@ -17,11 +17,13 @@ return new class extends Migration
             $table->string('last_name');
             $table->string('phone_number');
             $table->string('email');
+            $table->string('password');
             $table->text('profile_picture');
             $table->foreignId('ticket_category_id')->references('id')->on('ticket_categories');
             $table->integer('ticket_count')->default(0);
             $table->integer('max_ticket_capacity')->default(3);
             $table->boolean('available')->default(true);
+            $table->rememberToken();
             $table->timestamps();
         });
     }

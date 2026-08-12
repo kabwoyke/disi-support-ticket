@@ -1,4 +1,4 @@
-<x-layouts::app>
+
     <x-layouts::app>
     <div class="bg-base-100 flex h-screen overflow-hidden text-base-content">
 
@@ -64,5 +64,4 @@
     </div>
 </x-layouts::app>
 
-</x-layouts::app>
 
