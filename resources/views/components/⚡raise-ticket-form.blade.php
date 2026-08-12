@@ -7,6 +7,8 @@ use App\Models\Ticket;
 use App\Models\Department;
 use App\Models\TicketCategory;
 use App\Models\Equipment;
+use App\Models\SupportTeam;
+use App\Models\TicketAssignment;
 new class extends Component
 {
     use WithFileUploads;
@@ -54,7 +56,10 @@ new class extends Component
         }
     }
 
-        Ticket::create([
+        try {
+            DB::transaction(function () use($storedPaths) {
+
+        $ticket = Ticket::create([
         'subject'        => $this->subject,
         'categoryId'    => $this->category,
         'departmentId'  => $this->department,
@@ -64,10 +69,39 @@ new class extends Component
         'attachment_url' => json_encode($storedPaths),
     ]);
 
+
+        $supportTeam = SupportTeam::whereColumn('ticket_count' , '<' , 'max_ticket_capacity')
+        ->where('ticket_category_id' , '=' , $ticket->categoryId)
+        ->where('available', true)
+        ->lockForUpdate()
+        ->first();
+
+      if ($supportTeam) {
+                TicketAssignment::create([
+                    'teamId'   => $supportTeam->id,
+                    'ticketId' => $ticket->id,
+                ]);
+
+                $supportTeam->increment('ticket_count');
+
+                if ($supportTeam->ticket_count >= $supportTeam->max_ticket_capacity) {
+                    $supportTeam->update(['available' => false]);
+}
+                }
+
         $this->reset(['attachments']);
 
         session()->flash('success', 'Ticket created successfully!');
         return redirect()->route('create-ticket');
+    });
+        } catch (\Throwable $th) {
+           foreach ($storedPaths as $path) {
+            Storage::disk('public')->delete($path);
+        }
+
+        throw $th;
+        }
+
     }
 
     public function render(){

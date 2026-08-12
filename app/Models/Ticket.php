@@ -34,4 +34,10 @@ public function department(): BelongsTo
 {
     return $this->belongsTo(Department::class, 'departmentId');
 }
+
+
+public function ticket_assignment(){
+    return $this->hasMany(TicketAssignment::class , 'ticketId');
+}
+
 }
