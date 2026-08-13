@@ -19,4 +19,5 @@ Route::livewire("/support/dashboard" , "pages::ict.dashboard")->name("ict-dashbo
 Route::livewire("/support/manage-desk" , 'pages::ict.manage-desk')->name('manage-desk');
 Route::livewire("/support/manage-assets" , "pages::ict.assets")->name('manage-asset');
 Route::livewire("/support/auth/login" , "pages::ict.auth.login")->name('ict-login');
+Route::livewire("/support/system/health" , "pages::ict.settings.health")->name('system-health');
 Route::post("/support/auth/logout" , [AuthController::class , 'support_logout'])->name('support-logout');
