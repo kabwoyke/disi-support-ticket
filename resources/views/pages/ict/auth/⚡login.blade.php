@@ -37,7 +37,7 @@ new class extends Component
 
         <!-- Logo & Header -->
         <div class="text-center space-y-2">
-            <div class="inline-flex items-center justify-center p-3 bg-primary-100 rounded-full mb-1">
+            <div class="inline-flex items-center justify-center p-3 bg-primary-100 rounded-sm mb-1">
                 <img src="/disi-logo.avif" class="h-10 w-auto object-contain" alt="DISI Logo" />
             </div>
             <h1 class="text-2xl font-extrabold tracking-tight text-base-content">Support Login</h1>

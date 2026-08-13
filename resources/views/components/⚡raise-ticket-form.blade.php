@@ -10,6 +10,7 @@ use App\Models\Equipment;
 use App\Models\SupportTeam;
 use App\Models\TicketAssignment;
 use App\Models\Desk;
+use App\Notifications\NotifyTicket;
 new class extends Component
 {
     use WithFileUploads;
@@ -72,7 +73,8 @@ new class extends Component
         'equipmentId'   => $this->equipment ?: null,
         'description'    => $this->description,
         'attachment_url' => json_encode($storedPaths),
-        'deskId' => $this->desk
+        'deskId' => $this->desk,
+        'userId' => auth()->id()
     ]);
 
 
@@ -93,11 +95,13 @@ new class extends Component
                 if ($supportTeam->ticket_count >= $supportTeam->max_ticket_capacity) {
                     $supportTeam->update(['available' => false]);
 }
+                $supportTeam->notify(new NotifyTicket("You have been assigned ticket " . $ticket->id));
                 }
+
 
         $this->reset(['attachments']);
 
-        session()->flash('success', 'Ticket created successfully!');
+        session()->flash('success', 'Ticket created successfully! and have been assigned to IT Support');
         return redirect()->route('create-ticket');
     });
         } catch (\Throwable $th) {
@@ -127,7 +131,7 @@ new class extends Component
 };
 ?>
 
-<div class="max-w-4xl mx-auto p-6 md:p-8 bg-base-100 rounded-box shadow-lg border border-primary-100/60">
+<div class="max-w-4xl mx-auto p-6 md:p-8 bg-base-100 rounded-box shadow-lg border border-base-300">
     <!-- Header -->
     <div class="mb-6 border-b border-base-200 pb-4">
         <h2 class="text-xl font-bold text-base-content">Create New Support Ticket</h2>
@@ -177,20 +181,19 @@ new class extends Component
                     <p class="text-xs text-error mt-1">{{ $message }}</p>
                 @enderror
             </div>
-            {{-- dept --}}
-            <div class="form-control w-full">
-                <label for="category" class="label text-sm font-medium text-base-content mb-1">Department</label>
-                <select
-                    id="category"
-                    wire:model="department"
 
+            <!-- Department -->
+            <div class="form-control w-full">
+                <label for="department" class="label text-sm font-medium text-base-content mb-1">Department</label>
+                <select
+                    id="department"
+                    wire:model="department"
                     class="select select-bordered w-full text-sm focus:select-primary @error('department') select-error @enderror"
                 >
                     <option value="">Select Department</option>
                     @foreach ($departments as $dept )
                         <option value="{{ $dept->id }}">{{ $dept->department_name }}</option>
                     @endforeach
-
                 </select>
                 @error('department')
                     <p class="text-xs text-error mt-1">{{ $message }}</p>
@@ -225,10 +228,8 @@ new class extends Component
                     class="select select-bordered w-full text-sm focus:select-primary @error('equipment') select-error @enderror"
                 >
                     <option value="">Select Equipment</option>
-                    @foreach ($equipments as  $equipment)
-
-                    <option value="{{ $equipment->id }}">{{ $equipment->name }}</option>
-
+                    @foreach ($equipments as $equipment)
+                        <option value="{{ $equipment->id }}">{{ $equipment->name }}</option>
                     @endforeach
                 </select>
                 @error('equipment')
@@ -237,23 +238,22 @@ new class extends Component
             </div>
         </div>
 
+        <!-- Desk -->
         <div class="form-control w-full">
-                <label for="equipment" class="label text-sm font-medium text-base-content mb-1">Desk</label>
-                <select
-                    id="desk"
-                    wire:model="desk"
-                    class="select select-bordered w-full text-sm focus:select-primary @error('desk') select-error @enderror"
-                >
-                    <option value="">Select Desk</option>
-                    @foreach ($desks as  $desk)
-
+            <label for="desk" class="label text-sm font-medium text-base-content mb-1">Desk</label>
+            <select
+                id="desk"
+                wire:model="desk"
+                class="select select-bordered w-full text-sm focus:select-primary @error('desk') select-error @enderror"
+            >
+                <option value="">Select Desk</option>
+                @foreach ($desks as $desk)
                     <option value="{{ $desk->id }}">{{ $desk->desk_name }}</option>
-
-                    @endforeach
-                </select>
-                @error('desk')
-                    <p class="text-xs text-error mt-1">{{ $message }}</p>
-                @enderror
+                @endforeach
+            </select>
+            @error('desk')
+                <p class="text-xs text-error mt-1">{{ $message }}</p>
+            @enderror
         </div>
 
         <!-- Description -->
@@ -275,7 +275,7 @@ new class extends Component
         <div class="form-control w-full">
             <label class="label text-sm font-medium text-base-content mb-1">Attachments</label>
             <div class="flex items-center justify-center w-full">
-                <label for="attachments" class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-primary-200 rounded-btn cursor-pointer bg-primary-50/50 hover:bg-primary-50 transition-colors">
+                <label for="attachments" class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-base-300 rounded-btn cursor-pointer bg-base-200/50 hover:bg-base-200 transition-colors">
                     <div class="flex flex-col items-center justify-center pt-5 pb-6">
                         <svg class="w-8 h-8 mb-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
                         <p class="text-xs text-base-content"><span class="font-semibold text-primary">Click to upload</span> or drag and drop</p>
@@ -312,7 +312,7 @@ new class extends Component
         <div class="flex justify-end gap-3 pt-4 border-t border-base-200">
             <button
                 type="button"
-                class="btn btn-ghost text-sm font-medium"
+                class="btn btn-ghost text-sm font-medium text-base-content"
             >
                 Cancel
             </button>

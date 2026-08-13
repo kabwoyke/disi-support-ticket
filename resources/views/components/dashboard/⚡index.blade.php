@@ -6,7 +6,8 @@ use App\Models\TicketAssignment;
 
 new class extends Component
 {
-    // Mock data - replace with Eloquent queries
+    public $unreadNotifications = [];
+
     public function with(): array
     {
         return [
@@ -16,44 +17,36 @@ new class extends Component
                 'resolved' => 0,
                 'closed'   => 0,
             ],
-            'openTickets' => [
-                [
-                    'id' => 'TK-1001',
-                    'user' => 'Sarah Jenkins',
-                    'ext' => '2401',
-                    'location' => 'Desk A-08',
-                    'issue' => 'Printer drivers failing to connect over LAN',
-                    'priority' => 'High',
-                    'created_at' => '10 mins ago',
-                ],
-                [
-                    'id' => 'TK-1002',
-                    'user' => 'Michael Chen',
-                    'ext' => '1105',
-                    'location' => 'Desk C-14',
-                    'issue' => 'Monitor flickers when connected to dock',
-                    'priority' => 'Medium',
-                    'created_at' => '35 mins ago',
-                ],
-                [
-                    'id' => 'TK-1003',
-                    'user' => 'David K.',
-                    'ext' => '3302',
-                    'location' => 'Desk B-02',
-                    'issue' => 'Outlook asking for password repeatedly',
-                    'priority' => 'Low',
-                    'created_at' => '1 hour ago',
-                ],
-            ]
         ];
     }
 
-    public function resolveTicket($ticketId): void
+    public function getListeners()
     {
-        // Handle resolution logic
+
+        $supportTeamId = auth()->guard('support')->id();
+
+        return [
+            "echo-private:App.Models.SupportTeam.{$supportTeamId},.Illuminate\\Notifications\\Events\\BroadcastNotificationCreated" => 'handleNewNotification',
+            "echo-private:App.Models.SupportTeam.{$supportTeamId},NotificationSent" => 'handleNewNotification',
+
+        ];
     }
 
-     public function render()
+    public function handleNewNotification($event)
+    {
+        array_unshift($this->unreadNotifications, $event['message']);
+    }
+
+    public function mount()
+    {
+
+        $this->unreadNotifications = auth()->guard('support')->user()
+            ->unreadNotifications
+            ->pluck('data.message')
+            ->toArray();
+    }
+
+    public function render()
     {
         $supportId = auth()->guard('support')->user()->id;
         $numberOfOpenTickets = count(Ticket::where('status' , 'OPEN')->get());
@@ -61,10 +54,12 @@ new class extends Component
 
         $openTickets = Ticket::where('status' , 'OPEN')->get();
 
-        return view('components.dashboard.⚡index' , ['numberOfOpenTickets' => $numberOfOpenTickets , 'numberOfAssignedTickets' => $numberOfAssignedTickets , 'open_Tickets' =>$openTickets]);
+        return view('components.dashboard.⚡index' , [
+            'numberOfOpenTickets' => $numberOfOpenTickets,
+            'numberOfAssignedTickets' => $numberOfAssignedTickets,
+            'open_Tickets' => $openTickets
+        ]);
     }
-
-
 };
 ?>
 
@@ -77,6 +72,25 @@ new class extends Component
             <p class="text-sm text-base-content/70">Overview of current ticket dispatches and system activity.</p>
         </div>
 
+        <!-- Notification Icon -->
+        <div class="flex items-center gap-2">
+            <button class="btn btn-ghost btn-circle relative" aria-label="Notifications">
+               <div class="flex items-center gap-2" wire:key="notification-bell-container-{{ count($unreadNotifications) }}">
+    <button class="btn btn-ghost btn-circle relative" aria-label="Notifications">
+        <div class="indicator">
+            @if(count($unreadNotifications) > 0)
+                <span class="indicator-item badge badge-primary badge-sm font-bold">
+                    {{ count($unreadNotifications) > 99 ? '99+' : count($unreadNotifications) }}
+                </span>
+            @endif
+            <svg class="w-6 h-6 text-base-content/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 01-6 0v-1m6 0H9" />
+            </svg>
+        </div>
+    </button>
+</div>
+            </button>
+        </div>
     </div>
 
     <!-- Stats Cards Grid -->
@@ -129,7 +143,7 @@ new class extends Component
     </div>
 
     <!-- Open Tickets Table Card -->
-    <div class="bg-base-100 border border-primary-200/50 rounded-box shadow-sm overflow-hidden">
+    <div class="bg-base-100 border border-primary-200/50 rounded-box shadow-sm overflow-hidden mt-10">
         <div class="p-4 border-b border-base-200 flex items-center justify-between bg-base-100">
             <div>
                 <h2 class="font-bold text-lg">Active Open Tickets</h2>

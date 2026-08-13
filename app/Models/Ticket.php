@@ -18,6 +18,7 @@ class Ticket extends Model
     'description',
     'attachment_url',
     'deskId',
+    'userId'
 ];
 
 
@@ -43,6 +44,10 @@ public function ticket_assignment(){
 
 public function desk(){
     return $this->belongsTo(Desk::class , 'deskId');
+}
+
+public function user(){
+    return $this->belongsTo(User::class , 'userId');
 }
 
 }
