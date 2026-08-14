@@ -16,8 +16,10 @@ Route::livewire("/tickets/get-tickets" , "pages::view-tickets")->name("get-ticke
 
 // support
 Route::livewire("/support/dashboard" , "pages::ict.dashboard")->name("ict-dashboard")->middleware("auth:support");
-Route::livewire("/support/manage-desk" , 'pages::ict.manage-desk')->name('manage-desk');
+Route::livewire("/support/manage-desk" , 'pages::ict.manage-desk');
 Route::livewire("/support/manage-assets" , "pages::ict.assets")->name('manage-asset');
+Route::livewire("/support/manage-desks" , "pages::ict.features.manage-desk")->name('manage-desk');
+Route::livewire("/support/notifications/view" , "pages::ict.features.view-notification")->name('view-notification');
 Route::livewire("/support/auth/login" , "pages::ict.auth.login")->name('ict-login');
 Route::livewire("/support/system/health" , "pages::ict.settings.health")->name('system-health');
 Route::post("/support/auth/logout" , [AuthController::class , 'support_logout'])->name('support-logout');

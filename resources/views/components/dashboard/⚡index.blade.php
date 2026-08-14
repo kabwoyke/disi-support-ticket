@@ -189,7 +189,9 @@ new class extends Component
                             </td>
 
                             <td class="text-right whitespace-nowrap">
-                                <button
+
+
+                                 <button
                                     wire:click="resolveTicket('{{ $ticket['id'] }}')"
                                     wire:loading.attr="disabled"
                                     class="btn btn-sm btn-success text-white gap-1"
@@ -197,6 +199,8 @@ new class extends Component
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                                     Resolve
                                 </button>
+                                
+
                             </td>
                         </tr>
                     @empty

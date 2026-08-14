@@ -40,6 +40,9 @@ new class extends Component
     public array $attachments = [];
 
 
+    public $name = "";
+
+
 
 
 
@@ -115,6 +118,7 @@ new class extends Component
     }
 
     public function render(){
+
         $departments = Department::all();
         $desks = Desk::all();
         $categories = TicketCategory::all();
@@ -135,6 +139,7 @@ new class extends Component
     <!-- Header -->
     <div class="mb-6 border-b border-base-200 pb-4">
         <h2 class="text-xl font-bold text-base-content">Create New Support Ticket</h2>
+        <h3>{{ $name }}</h3>
         <p class="text-xs text-base-content/70 mt-0.5">Fill out the details below to submit your request to the IT team.</p>
     </div>
 
