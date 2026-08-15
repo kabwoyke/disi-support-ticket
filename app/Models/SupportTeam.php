@@ -46,5 +46,8 @@ public function ticket_assignment(){
     return $this->hasMany(TicketAssignment::class , 'teamId');
 }
 
+public function ticket_resolution(){
+    $this->hasMany(TicketResolution::class , 'resolved_by');
+}
 
 }

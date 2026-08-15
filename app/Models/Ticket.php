@@ -18,7 +18,8 @@ class Ticket extends Model
     'description',
     'attachment_url',
     'deskId',
-    'userId'
+    'userId',
+    'status'
 ];
 
 

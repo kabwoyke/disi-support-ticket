@@ -11,11 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('ticket_assignments', function (Blueprint $table) {
+        Schema::create('ticket_resolutions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('ticketId')->references('id')->on('tickets');
-            $table->foreignId('teamId')->references('id')->on('support_teams');
-            $table->enum("status" , ["OPEN" , "CLOSED" , "IN-PROGRESS" , "RESOLVED"])->default("OPEN");
+            $table->foreignId('ticket_assignment_id')->references('id')->on('ticket_assignments');
+            $table->foreignId('resolved_by')->references('id')->on('support_teams');
+            $table->dateTime('resolved_at')->useCurrent();
             $table->timestamps();
         });
     }
@@ -25,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('ticket_assignments');
+        Schema::dropIfExists('ticket_resolutions');
     }
 };
