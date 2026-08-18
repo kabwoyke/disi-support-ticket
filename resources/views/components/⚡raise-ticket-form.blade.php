@@ -98,13 +98,16 @@ new class extends Component
                 if ($supportTeam->ticket_count >= $supportTeam->max_ticket_capacity) {
                     $supportTeam->update(['available' => false]);
 }
-                $supportTeam->notify(new NotifyTicket("You have been assigned ticket " . $ticket->id));
+                $supportTeam->notify(new NotifyTicket($ticket, 'created'));
                 }
 
 
         $this->reset(['attachments']);
 
-        session()->flash('success', 'Ticket created successfully! and have been assigned to IT Support');
+        session()->flash('success', [
+    'Ticket created successfully!',
+    'Your ticket has been assigned to ' . $supportTeam->first_name . ' ' . $supportTeam->last_name . '.'
+]);
         return redirect()->route('create-ticket');
     });
         } catch (\Throwable $th) {
@@ -144,12 +147,24 @@ new class extends Component
     </div>
 
     <!-- Alert Flash Message -->
-    @if (session()->has('success'))
-        <div role="alert" class="alert alert-success mb-6 text-sm py-2 text-success-content">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            <span>{{ session('success') }}</span>
+   @if (session()->has('success'))
+    <div role="alert" class="alert alert-success mb-6 text-sm py-2 text-success-content">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div>
+            @if (is_array(session('success')))
+                <ul class="list-disc list-inside space-y-1">
+                    @foreach (session('success') as $message)
+                        <li>{{ $message }}</li>
+                    @endforeach
+                </ul>
+            @else
+                <span>{{ session('success') }}</span>
+            @endif
         </div>
-    @endif
+    </div>
+@endif
 
     <form wire:submit="save" class="space-y-5">
         <!-- Subject -->
