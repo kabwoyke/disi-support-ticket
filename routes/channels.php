@@ -14,3 +14,8 @@ Broadcast::channel('user-chat', function ($user) {
     // Return true if any authenticated user can join
     return auth()->check();
 });
+
+Broadcast::channel('admin-chat', function ($user) {
+    // Return true if any authenticated user can join
+    return auth()->check();
+});
