@@ -14,14 +14,18 @@ class AdminChat implements ShouldBroadcast
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public string $adminText;
+    public string|int $chatId;
 
     /**
      * Create a new event instance.
      */
-    public function __construct(string $adminText)
+    public function __construct(string $adminText , int $chatId)
     {
         $this->adminText = $adminText;
+        $this->chatId = $chatId;
     }
+
+
 
     /**
      * Get the channels the event should broadcast on.
@@ -31,7 +35,7 @@ class AdminChat implements ShouldBroadcast
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('admin-chat'),
+            new PrivateChannel('admin-chat.' . $this->chatId),
         ];
     }
 
@@ -52,6 +56,7 @@ class AdminChat implements ShouldBroadcast
     {
         return [
             'adminText' => $this->adminText,
+            'chatId'    => $this->chatId,
         ];
     }
 }

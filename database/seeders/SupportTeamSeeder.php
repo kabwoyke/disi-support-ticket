@@ -43,7 +43,7 @@ class SupportTeamSeeder extends Seeder
                 'last_name' => $lastName,
                 'password' => Hash::make($passwords[0]),
                 'phone_number' => '+2547' . rand(10000000, 99999999),
-                'email' => strtolower($firstName . '.' . $lastName . '@example.com'),
+                'email' => strtolower($firstName . '.' . $lastName . '@gmail.com'),
                 'profile_picture' => 'profile_pictures/' . Str::slug($member) . '.jpg',
                 'ticket_category_id' => $specialties[array_rand($specialties)],
                 'available' => 1,

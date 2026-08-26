@@ -2,28 +2,60 @@
 
 use Livewire\Component;
 use App\Events\UserChat;
+use App\Models\ChatMessage;
+use App\Models\Chat;
+use App\Models\Ticket;
 use Livewire\Attributes\Validate;
-use Illuminate\Support\Facades\Log;
+use Livewire\Attributes\Url;
 
 new class extends Component
 {
     #[Validate('required|string|min:1')]
     public string $userChat = '';
 
-    /**
-     * List of incoming and outgoing chat messages.
-     *
-     * @var array<int, array{id: string, sender: string, text: string, time: string}>
-     */
+    #[Url]
+    public $ticket = '';
+
     public array $messages = [];
 
-    protected $listeners = [
-        'echo-private:admin-chat,.AdminChat' => 'receiveAdminMessage',
-    ];
+    public function mount(): void
+    {
+        if (!$this->ticket) {
+            $this->ticket = request()->query('ticket', '');
+        }
 
-    /**
-     * Listen for incoming broadcast messages sent by the support admin.
-     */
+        $this->loadMessages();
+    }
+
+    public function loadMessages(): void
+    {
+        if (!$this->ticket) {
+            return;
+        }
+
+        $this->messages = ChatMessage::where('chat_id', $this->ticket)
+            ->oldest()
+            ->get()
+            ->map(fn ($msg) => [
+                'id' => 'msg_' . $msg->id,
+                'sender' => $msg->sender_type === 'App\Models\SupportTeam' ? 'admin' : 'user',
+                'text' => $msg->message,
+                'time' => $msg->created_at->timezone('Africa/Nairobi')->format('g:i A'),
+            ])
+            ->toArray();
+    }
+
+    public function getListeners(): array
+    {
+        if (!$this->ticket) {
+            return [];
+        }
+
+        return [
+            "echo-private:admin-chat.{$this->ticket},.AdminChat" => 'receiveAdminMessage',
+        ];
+    }
+
     public function receiveAdminMessage(array $event): void
     {
         if (!empty($event['adminText'])) {
@@ -31,37 +63,53 @@ new class extends Component
                 'id' => uniqid('msg_'),
                 'sender' => 'admin',
                 'text' => $event['adminText'],
-                'time' => now()->format('g:i A'),
+                'time' => now()->timezone('Africa/Nairobi')->format('g:i A'),
             ];
         }
     }
 
-    /**
-     * Send user chat message and broadcast to support admin.
-     */
     public function send(): void
-    {
-        $this->validate();
+{
+    $this->validate();
 
-        Log::info("User chat message sent", ['msg' => $this->userChat]);
-
-        // Broadcast to WebSocket server
-        broadcast(new UserChat($this->userChat));
-
-        // Push directly to local messages array for display
-        $this->messages[] = [
-            'id' => uniqid('msg_'),
-            'sender' => 'user',
-            'text' => $this->userChat,
-            'time' => now()->timezone('Africa/Nairobi')->format('g:i A'),
-        ];
-
-        $this->reset('userChat');
+    if (!$this->ticket) {
+        return;
     }
+
+    // Retrieve the active Chat record (or create one if it doesn't exist)
+    $chat = Chat::firstOrCreate([
+        'id' => $this->ticket,
+    ], [
+        'user_id' => auth()->id(),
+    ]);
+
+    // 1. Save message using the verified Chat ID
+    $savedMessage = ChatMessage::create([
+        'chat_id'     => $chat->id,
+        'sender_type' => 'App\Models\User',
+        'sender_id'   => auth()->id(),
+        'message'     => $this->userChat,
+    ]);
+
+    // 2. Broadcast to admin
+    broadcast(new UserChat($this->userChat, (int) $chat->id));
+
+    // 3. Update UI state
+    $this->messages[] = [
+        'id'     => 'msg_' . $savedMessage->id,
+        'sender' => 'user',
+        'text'   => $this->userChat,
+        'time'   => $savedMessage->created_at->timezone('Africa/Nairobi')->format('g:i A'),
+    ];
+
+    $this->reset('userChat');
+}
 
     public function render()
     {
-        return view('pages::users.⚡chat')
+        $ticketDetail = Ticket::find($this->ticket);
+
+        return view('pages::users.⚡chat', ['ticketDetail' => $ticketDetail])
             ->layout('layouts::user');
     }
 };
@@ -82,8 +130,8 @@ new class extends Component
                     </a>
                     <div>
                         <div class="flex items-center gap-2">
-                            <span class="font-mono text-xs font-bold text-primary">#T-00104</span>
-                            <h1 class="text-sm font-bold text-base-content">Network printer on Desk 04 unreachable</h1>
+                            <span class="font-mono text-xs font-bold text-primary">#T-00{{ $ticketDetail->id }}</span>
+                            <h1 class="text-sm font-bold text-base-content">{{ $ticketDetail->description }}</h1>
                         </div>
                         {{-- <p class="text-xs text-base-content/60 mt-0.5">Assigned to: <span class="font-semibold text-base-content">{{  }}</span></p> --}}
                     </div>
@@ -91,8 +139,8 @@ new class extends Component
 
                 <!-- Status & Priority Badges -->
                 <div class="flex items-center gap-2">
-                    <span class="badge badge-warning text-white font-semibold text-xs">HIGH PRIORITY</span>
-                    <span class="badge badge-info badge-outline text-xs">IN PROGRESS</span>
+                    <span class="badge badge-warning text-white font-semibold text-xs">{{ strtoupper($ticketDetail->priority) }}</span>
+                    <span class="badge badge-info badge-outline text-xs">{{ $ticketDetail->status }}</span>
                 </div>
             </div>
 

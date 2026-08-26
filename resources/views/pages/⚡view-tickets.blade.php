@@ -4,8 +4,6 @@ use Livewire\Component;
 use App\Models\Ticket;
 new class extends Component
 {
-    //
-
     public ?Ticket $selectedTicket = null;
     public bool $showModal = false;
 
@@ -26,7 +24,7 @@ new class extends Component
         $this->selectedTicket = null;
     }
 
-   public function render()
+    public function render()
     {
         $userTickets = Ticket::with(['category', 'department', 'equipment', 'desk' , 'ticket_assignment.support_team'])
             ->where('userId', auth()->id())
@@ -149,14 +147,27 @@ new class extends Component
                                 <div class="text-[10px] text-base-content/50">{{ $ticket->created_at->diffForHumans() }}</div>
                             </td>
 
-                            <!-- Action Button -->
-                            <td class="text-right">
-                                <button
-                                    wire:click="viewTicket({{ $ticket->id }})"
-                                    class="btn btn-primary btn-xs text-white font-medium"
-                                >
-                                    View
-                                </button>
+                            <!-- Action Buttons -->
+                            <td class="text-right whitespace-nowrap">
+                                <div class="flex items-center justify-end gap-1.5">
+                                    <button
+                                        wire:click="viewTicket({{ $ticket->id }})"
+                                        class="btn btn-outline btn-primary btn-xs font-medium"
+                                    >
+                                        View
+                                    </button>
+
+                                    <a
+                                        wire:navigate
+                                        href="{{ route('user-chat', ['ticket' => $ticket->id]) }}"
+                                        class="btn btn-secondary btn-xs text-white font-medium gap-1"
+                                    >
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                                        </svg>
+                                        Chat
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                     @empty
@@ -267,8 +278,18 @@ new class extends Component
                 </div>
 
                 <!-- Modal Actions -->
-                <div class="modal-action border-t border-base-200 pt-3">
-                    <button wire:click="closeModal" class="btn btn-primary text-white btn-sm">Close</button>
+                <div class="modal-action border-t border-base-200 pt-3 flex items-center justify-between">
+                    <a
+                        wire:navigate
+                        href="{{ route('user-chat', ['ticket' => $selectedTicket->id]) }}"
+                        class="btn btn-secondary text-white btn-sm gap-1"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                        </svg>
+                        Open Ticket Chat
+                    </a>
+                    <button wire:click="closeModal" class="btn btn-ghost btn-sm">Close</button>
                 </div>
             </div>
             <div wire:click="closeModal" class="modal-backdrop bg-neutral/60"></div>

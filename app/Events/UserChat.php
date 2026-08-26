@@ -1,10 +1,7 @@
 <?php
 
 namespace App\Events;
-
-use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -14,16 +11,16 @@ class UserChat implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
+    public string $userText;
+    public string|int $chatId;
+
     /**
      * Create a new event instance.
      */
-
-    public $userText;
-
-    public function __construct($userText)
+    public function __construct(string $userText, string|int $chatId)
     {
-        //
         $this->userText = $userText;
+        $this->chatId = $chatId;
     }
 
     /**
@@ -34,17 +31,20 @@ class UserChat implements ShouldBroadcast
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('user-chat'),
+            new PrivateChannel('admin-chat.' . $this->chatId),
         ];
     }
 
+    /**
+     * Set explicit broadcast event name.
+     */
     public function broadcastAs(): string
     {
         return 'UserChat';
     }
 
     /**
-     * Get the data to broadcast.
+     * Data to broadcast with the event.
      *
      * @return array<string, mixed>
      */
@@ -52,8 +52,7 @@ class UserChat implements ShouldBroadcast
     {
         return [
             'userText' => $this->userText,
+            'chatId'   => $this->chatId,
         ];
     }
-
-
 }

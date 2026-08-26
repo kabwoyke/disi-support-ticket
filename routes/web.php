@@ -31,5 +31,6 @@ Route::livewire("/support/manage-desks" , "pages::ict.features.manage-desk")->na
 Route::livewire("/support/notifications/view" , "pages::ict.features.view-notification")->name('view-notification');
 Route::livewire("/support/chat/v1" , "pages::ict.features.chat")->name("support-chat")->middleware("auth:support");
 Route::livewire("/support/auth/login" , "pages::ict.auth.login")->name('ict-login');
+Route::livewire("/support/my-tickets" , "pages::ict.features.my-tickets")->name("my-tickets");
 Route::livewire("/support/system/health" , "pages::ict.settings.health")->name('system-health');
 Route::post("/support/auth/logout" , [AuthController::class , 'support_logout'])->name('support-logout');

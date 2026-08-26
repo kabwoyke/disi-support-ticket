@@ -2,28 +2,71 @@
 
 use Livewire\Component;
 use App\Events\AdminChat;
+use App\Models\ChatMessage;
+use App\Models\Chat;
+use Livewire\Attributes\Url;
 
 new class extends Component
 {
-    /**
-     * List of incoming user and outgoing admin messages.
-     *
-     * @var array<int, array{id: string, sender: string, text: string, time: string}>
-     */
-    public array $messages = [];
+    #[Url]
+    public $ticket = '';
 
-    /**
-     * Reply text typed by the admin.
-     */
+    public array $messages = [];
     public string $adminReply = '';
 
-    protected $listeners = [
-        'echo-private:user-chat,.UserChat' => 'recieveUserMessage',
-    ];
+    public function mount(): void
+    {
+        if (!$this->ticket) {
+            $this->ticket = request()->query('ticket', '');
+        }
+
+        $this->loadMessages();
+    }
 
     /**
-     * Handle incoming broadcast payload from the user.
+     * Resolve the active Chat record, creating one if missing.
      */
+    protected function getActiveChat(): ?Chat
+    {
+        if (!$this->ticket) {
+            return null;
+        }
+
+        return Chat::firstOrCreate(
+            ['id' => $this->ticket],
+            ['support_id' => auth('support')->id()]
+        );
+    }
+
+    public function loadMessages(): void
+    {
+        if (!$this->ticket) {
+            return;
+        }
+
+        $this->messages = ChatMessage::where('chat_id', $this->ticket)
+            ->oldest()
+            ->get()
+            ->map(fn ($msg) => [
+                'id' => 'msg_' . $msg->id,
+                'sender' => $msg->sender_type === 'App\Models\SupportTeam' ? 'admin' : 'user',
+                'text' => $msg->message,
+                'time' => $msg->created_at->timezone('Africa/Nairobi')->format('g:i A'),
+            ])
+            ->toArray();
+    }
+
+    public function getListeners(): array
+    {
+        if (!$this->ticket) {
+            return [];
+        }
+
+        return [
+            "echo-private:admin-chat.{$this->ticket},.UserChat" => 'recieveUserMessage',
+        ];
+    }
+
     public function recieveUserMessage(array $event): void
     {
         if (!empty($event['userText'])) {
@@ -36,28 +79,39 @@ new class extends Component
         }
     }
 
-    /**
-     * Send an admin reply.
-     */
- public function sendAdminReply(): void
-{
-    $this->validate([
-        'adminReply' => 'required|string|min:1',
-    ]);
+    public function sendAdminReply(): void
+    {
+        $this->validate([
+            'adminReply' => 'required|string|min:1',
+        ]);
 
-    // Dispatch event to broadcast across the WebSocket server
-    AdminChat::dispatch($this->adminReply);
+        $chat = $this->getActiveChat();
 
-    // Push directly to local array for instant UI update
-    $this->messages[] = [
-        'id' => uniqid('msg_'),
-        'sender' => 'admin',
-        'text' => $this->adminReply,
-        'time' => now()->timezone('Africa/Nairobi')->format('g:i A'),
-    ];
+        if (!$chat) {
+            return;
+        }
 
-    $this->reset('adminReply');
-}
+        // 1. Save directly to DB using guaranteed Chat ID
+        $savedMessage = ChatMessage::create([
+            'chat_id' => $chat->id,
+            'sender_type' => 'App\Models\SupportTeam',
+            'sender_id' => auth('support')->id(),
+            'message' => $this->adminReply,
+        ]);
+
+        // 2. Broadcast to user
+        AdminChat::dispatch($this->adminReply, (int) $chat->id);
+
+        // 3. Append to UI
+        $this->messages[] = [
+            'id' => 'msg_' . $savedMessage->id,
+            'sender' => 'admin',
+            'text' => $this->adminReply,
+            'time' => $savedMessage->created_at->timezone('Africa/Nairobi')->format('g:i A'),
+        ];
+
+        $this->reset('adminReply');
+    }
 
     public function render()
     {
