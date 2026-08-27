@@ -1,17 +1,21 @@
 <?php
 
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use App\Events\UserChat;
 use App\Models\ChatMessage;
 use App\Models\Chat;
 use App\Models\Ticket;
 use Livewire\Attributes\Validate;
 use Livewire\Attributes\Url;
+use Illuminate\Support\Facades\Storage;
 
 new class extends Component
 {
-    #[Validate('required|string|min:1')]
+    use WithFileUploads;
+
     public string $userChat = '';
+    public $attachment = null;
 
     #[Url]
     public $ticket = '';
@@ -40,6 +44,8 @@ new class extends Component
                 'id' => 'msg_' . $msg->id,
                 'sender' => $msg->sender_type === 'App\Models\SupportTeam' ? 'admin' : 'user',
                 'text' => $msg->message,
+                // Specify the 'public' disk explicitly when generating public URLs
+                'attachment' => $msg->attachment_path ? Storage::disk('public')->url($msg->attachment_path) : null,
                 'time' => $msg->created_at->timezone('Africa/Nairobi')->format('g:i A'),
             ])
             ->toArray();
@@ -58,52 +64,74 @@ new class extends Component
 
     public function receiveAdminMessage(array $event): void
     {
-        if (!empty($event['adminText'])) {
+        $attachment = $event['attachment'] ?? null;
+
+        // Convert path to public URL if it's a raw relative path
+        if ($attachment && !str_starts_with($attachment, 'http')) {
+            $attachment = Storage::disk('public')->url($attachment);
+        }
+
+        if (!empty($event['adminText']) || !empty($attachment)) {
             $this->messages[] = [
                 'id' => uniqid('msg_'),
                 'sender' => 'admin',
-                'text' => $event['adminText'],
+                'text' => $event['adminText'] ?? '',
+                'attachment' => $attachment,
                 'time' => now()->timezone('Africa/Nairobi')->format('g:i A'),
             ];
         }
     }
 
     public function send(): void
-{
-    $this->validate();
+    {
+        $this->validate([
+            'userChat' => 'nullable|string',
+            'attachment' => 'nullable|file|max:10240',
+        ]);
 
-    if (!$this->ticket) {
-        return;
+        if (empty(trim($this->userChat)) && !$this->attachment) {
+            return;
+        }
+
+        if (!$this->ticket) {
+            return;
+        }
+
+        $chat = Chat::firstOrCreate([
+            'id' => $this->ticket,
+        ], [
+            'user_id' => auth()->id(),
+        ]);
+
+        $storedPath = null;
+        if ($this->attachment) {
+            // Store directly under public disk
+            $storedPath = $this->attachment->store('chat-attachments', 'public');
+        }
+
+        $savedMessage = ChatMessage::create([
+            'chat_id' => $chat->id,
+            'sender_type' => 'App\Models\User',
+            'sender_id' => auth()->id(),
+            'message' => $this->userChat ?? '',
+            'attachment_path' => $storedPath,
+        ]);
+
+        $attachmentUrl = $storedPath ? Storage::disk('public')->url($storedPath) : null;
+
+        // Broadcast relative path or URL
+        broadcast(new UserChat($this->userChat, (int) $chat->id, $attachmentUrl));
+
+        $this->messages[] = [
+            'id' => 'msg_' . $savedMessage->id,
+            'sender' => 'user',
+            'text' => $this->userChat,
+            'attachment' => $attachmentUrl,
+            'time' => $savedMessage->created_at->timezone('Africa/Nairobi')->format('g:i A'),
+        ];
+
+        $this->reset(['userChat', 'attachment']);
     }
-
-    // Retrieve the active Chat record (or create one if it doesn't exist)
-    $chat = Chat::firstOrCreate([
-        'id' => $this->ticket,
-    ], [
-        'user_id' => auth()->id(),
-    ]);
-
-    // 1. Save message using the verified Chat ID
-    $savedMessage = ChatMessage::create([
-        'chat_id'     => $chat->id,
-        'sender_type' => 'App\Models\User',
-        'sender_id'   => auth()->id(),
-        'message'     => $this->userChat,
-    ]);
-
-    // 2. Broadcast to admin
-    broadcast(new UserChat($this->userChat, (int) $chat->id));
-
-    // 3. Update UI state
-    $this->messages[] = [
-        'id'     => 'msg_' . $savedMessage->id,
-        'sender' => 'user',
-        'text'   => $this->userChat,
-        'time'   => $savedMessage->created_at->timezone('Africa/Nairobi')->format('g:i A'),
-    ];
-
-    $this->reset('userChat');
-}
 
     public function render()
     {
@@ -114,7 +142,6 @@ new class extends Component
     }
 };
 ?>
-
 <div>
     <div class="h-[calc(100vh-5rem)] max-w-4xl mx-auto p-4 flex flex-col">
         <!-- Main Chat Card -->
@@ -133,7 +160,6 @@ new class extends Component
                             <span class="font-mono text-xs font-bold text-primary">#T-00{{ $ticketDetail->id }}</span>
                             <h1 class="text-sm font-bold text-base-content">{{ $ticketDetail->description }}</h1>
                         </div>
-                        {{-- <p class="text-xs text-base-content/60 mt-0.5">Assigned to: <span class="font-semibold text-base-content">{{  }}</span></p> --}}
                     </div>
                 </div>
 
@@ -162,8 +188,25 @@ new class extends Component
                                 You
                                 <time class="text-[10px] opacity-50 ml-1">{{ $msg['time'] }}</time>
                             </div>
-                            <div class="chat-bubble chat-bubble-primary text-white text-xs leading-relaxed">
-                                {{ $msg['text'] }}
+                            <div class="chat-bubble chat-bubble-primary text-white text-xs leading-relaxed space-y-2">
+                                @if(!empty($msg['text']))
+                                    <p>{{ $msg['text'] }}</p>
+                                @endif
+
+                                @if(!empty($msg['attachment']))
+                                    <div class="pt-1">
+                                        @if(preg_match('/\.(jpg|jpeg|png|gif|webp)$/i', $msg['attachment']))
+                                            <a href="{{ $msg['attachment'] }}" target="_blank">
+                                                <img src="{{ $msg['attachment'] }}" class="max-w-xs rounded border border-white/20 hover:opacity-90 transition-opacity" />
+                                            </a>
+                                        @else
+                                            <a href="{{ $msg['attachment'] }}" target="_blank" class="flex items-center gap-2 underline text-white font-medium">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                                                View Attachment
+                                            </a>
+                                        @endif
+                                    </div>
+                                @endif
                             </div>
                             <div class="chat-footer text-[10px] opacity-50 mt-1">Sent</div>
                         </div>
@@ -179,29 +222,55 @@ new class extends Component
                                 ICT Support Admin
                                 <time class="text-[10px] opacity-50 ml-1">{{ $msg['time'] }}</time>
                             </div>
-                            <div class="chat-bubble chat-bubble-neutral text-xs leading-relaxed">
-                                {{ $msg['text'] }}
+                            <div class="chat-bubble chat-bubble-neutral text-xs leading-relaxed space-y-2">
+                                @if(!empty($msg['text']))
+                                    <p>{{ $msg['text'] }}</p>
+                                @endif
+
+                                @if(!empty($msg['attachment']))
+                                    <div class="pt-1">
+                                        @if(preg_match('/\.(jpg|jpeg|png|gif|webp)$/i', $msg['attachment']))
+                                            <a href="{{ $msg['attachment'] }}" target="_blank">
+                                                <img src="{{ $msg['attachment'] }}" class="max-w-xs rounded border border-base-300 hover:opacity-90 transition-opacity" />
+                                            </a>
+                                        @else
+                                            <a href="{{ $msg['attachment'] }}" target="_blank" class="flex items-center gap-2 underline text-primary font-medium">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                                                View Attachment
+                                            </a>
+                                        @endif
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     @endif
                 @empty
                     <div class="text-center text-xs text-base-content/40 py-8">
-                        Type your message below to send a update to the support team.
+                        Type your message below to send an update to the support team.
                     </div>
                 @endforelse
             </div>
 
             <!-- Chat Input Area -->
-            <div class="p-3 bg-base-100 border-t border-base-200">
+            <div class="p-3 bg-base-100 border-t border-base-200 space-y-2">
+                <!-- Preview active upload before submission -->
+                @if ($attachment)
+                    <div class="flex items-center justify-between bg-base-200 px-3 py-1.5 rounded-lg text-xs">
+                        <span class="truncate max-w-xs font-mono text-base-content/80">{{ $attachment->getClientOriginalName() }}</span>
+                        <button type="button" wire:click="$set('attachment', null)" class="text-error font-bold text-xs hover:underline">Remove</button>
+                    </div>
+                @endif
+
                 <form class="flex items-center gap-2" wire:submit="send">
-                    <!-- Attachment Button -->
-                    <button type="button" class="btn btn-ghost btn-circle btn-sm text-base-content/60 hover:text-primary" title="Attach file">
+                    <!-- File Trigger Button -->
+                    <label class="btn btn-ghost btn-circle btn-sm text-base-content/60 hover:text-primary cursor-pointer" title="Attach file">
+                        <input type="file" wire:model="attachment" class="hidden" />
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                         </svg>
-                    </button>
+                    </label>
 
-                    <!-- Input Field -->
+                    <!-- Text Input Field -->
                     <input
                         type="text"
                         wire:model="userChat"
@@ -209,10 +278,11 @@ new class extends Component
                         class="input input-sm input-bordered flex-1 text-xs focus:outline-none focus:border-primary"
                     />
 
-                    <!-- Submit Button -->
-                    <button type="submit" class="btn btn-sm btn-primary text-white font-semibold gap-1">
-                        <span>Send</span>
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <!-- Submit Button with Loading State -->
+                    <button type="submit" class="btn btn-sm btn-primary text-white font-semibold gap-1" wire:loading.attr="disabled">
+                        <span wire:loading.remove wire:target="send">Send</span>
+                        <span wire:loading wire:target="send" class="loading loading-spinner loading-xs"></span>
+                        <svg wire:loading.remove wire:target="send" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9-7-9-7-9 7 9 7zm0 0v-8" />
                         </svg>
                     </button>

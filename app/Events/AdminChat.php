@@ -15,22 +15,22 @@ class AdminChat implements ShouldBroadcast
 
     public string $adminText;
     public string|int $chatId;
+    public ?string $attachment; // 1. Added property
 
     /**
      * Create a new event instance.
      */
-    public function __construct(string $adminText , int $chatId)
+    public function __construct(string $adminText, string|int $chatId, ?string $attachment = null) // 2. Accept nullable attachment
     {
         $this->adminText = $adminText;
         $this->chatId = $chatId;
+        $this->attachment = $attachment;
     }
-
-
 
     /**
      * Get the channels the event should broadcast on.
      *
-     * @return array<int, Channel>
+     * @return array<int, \Illuminate\Broadcasting\Channel>
      */
     public function broadcastOn(): array
     {
@@ -55,8 +55,9 @@ class AdminChat implements ShouldBroadcast
     public function broadcastWith(): array
     {
         return [
-            'adminText' => $this->adminText,
-            'chatId'    => $this->chatId,
+            'adminText'  => $this->adminText,
+            'chatId'     => $this->chatId,
+            'attachment' => $this->attachment, // 3. Include attachment in payload
         ];
     }
 }

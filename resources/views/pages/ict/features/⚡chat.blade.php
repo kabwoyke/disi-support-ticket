@@ -1,18 +1,23 @@
 <?php
 
 use Livewire\Component;
+use Livewire\WithFileUploads; // 1. Import file upload trait
 use App\Events\AdminChat;
 use App\Models\ChatMessage;
 use App\Models\Chat;
 use Livewire\Attributes\Url;
+use Illuminate\Support\Facades\Storage;
 
 new class extends Component
 {
+    use WithFileUploads; // 2. Enable file upload support
+
     #[Url]
     public $ticket = '';
 
     public array $messages = [];
     public string $adminReply = '';
+    public $attachment = null; // Property for administrative file uploads
 
     public function mount(): void
     {
@@ -23,9 +28,6 @@ new class extends Component
         $this->loadMessages();
     }
 
-    /**
-     * Resolve the active Chat record, creating one if missing.
-     */
     protected function getActiveChat(): ?Chat
     {
         if (!$this->ticket) {
@@ -51,6 +53,7 @@ new class extends Component
                 'id' => 'msg_' . $msg->id,
                 'sender' => $msg->sender_type === 'App\Models\SupportTeam' ? 'admin' : 'user',
                 'text' => $msg->message,
+                'attachment' => $msg->attachment_path ? Storage::url($msg->attachment_path) : null,
                 'time' => $msg->created_at->timezone('Africa/Nairobi')->format('g:i A'),
             ])
             ->toArray();
@@ -69,11 +72,12 @@ new class extends Component
 
     public function recieveUserMessage(array $event): void
     {
-        if (!empty($event['userText'])) {
+        if (!empty($event['userText']) || !empty($event['attachment'])) {
             $this->messages[] = [
                 'id' => uniqid('msg_'),
                 'sender' => 'user',
-                'text' => $event['userText'],
+                'text' => $event['userText'] ?? '',
+                'attachment' => $event['attachment'] ?? null,
                 'time' => now()->timezone('Africa/Nairobi')->format('g:i A'),
             ];
         }
@@ -82,8 +86,13 @@ new class extends Component
     public function sendAdminReply(): void
     {
         $this->validate([
-            'adminReply' => 'required|string|min:1',
+            'adminReply' => 'nullable|string',
+            'attachment' => 'nullable|file|max:10240', // Limit file size to 10MB
         ]);
+
+        if (empty(trim($this->adminReply)) && !$this->attachment) {
+            return;
+        }
 
         $chat = $this->getActiveChat();
 
@@ -91,26 +100,36 @@ new class extends Component
             return;
         }
 
-        // 1. Save directly to DB using guaranteed Chat ID
+        // Store attachment if selected
+        $storedPath = null;
+        if ($this->attachment) {
+            $storedPath = $this->attachment->store('chat-attachments', 'public');
+        }
+
+        // 1. Save directly to DB
         $savedMessage = ChatMessage::create([
             'chat_id' => $chat->id,
             'sender_type' => 'App\Models\SupportTeam',
             'sender_id' => auth('support')->id(),
-            'message' => $this->adminReply,
+            'message' => $this->adminReply ?? '',
+            'attachment_path' => $storedPath,
         ]);
 
-        // 2. Broadcast to user
-        AdminChat::dispatch($this->adminReply, (int) $chat->id);
+        $attachmentUrl = $storedPath ? Storage::url($storedPath) : null;
 
-        // 3. Append to UI
+        // 2. Broadcast to user
+        AdminChat::dispatch($this->adminReply, (int) $chat->id, $attachmentUrl);
+
+        // 3. Append to local state
         $this->messages[] = [
             'id' => 'msg_' . $savedMessage->id,
             'sender' => 'admin',
             'text' => $this->adminReply,
+            'attachment' => $attachmentUrl,
             'time' => $savedMessage->created_at->timezone('Africa/Nairobi')->format('g:i A'),
         ];
 
-        $this->reset('adminReply');
+        $this->reset(['adminReply', 'attachment']);
     }
 
     public function render()
@@ -120,7 +139,6 @@ new class extends Component
     }
 };
 ?>
-
 <div>
     <div class="h-[calc(100vh-5rem)] max-w-7xl mx-auto p-4 flex gap-4">
         <!-- Sidebar: Conversation / Ticket List -->
@@ -129,7 +147,6 @@ new class extends Component
             <div class="p-4 border-b border-base-200 space-y-3">
                 <div class="flex items-center justify-between">
                     <h2 class="text-lg font-bold text-base-content">Support Chats</h2>
-                    {{-- <span class="badge badge-primary text-white font-semibold">4 Open</span> --}}
                 </div>
                 <div class="relative">
                     <input
@@ -145,35 +162,31 @@ new class extends Component
 
             <!-- Conversations List -->
             <div class="flex-1 overflow-y-auto divide-y divide-base-200">
-               <!-- Sidebar Conversation Item -->
-<button class="w-full p-3 text-left flex items-start gap-3 bg-base-200/60 border-l-4 border-primary transition-all">
-    <div class="avatar online shrink-0">
-        <div class="w-10 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
-            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRoeZOBBidNgNcGNpV6v4cwHkHPfhp98-J75q0kd2z1Qv9Da0Cimld3WA&s=10" alt="profile" />
-        </div>
-    </div>
-    <div class="flex-1 min-w-0">
-        <div class="flex items-center justify-between">
-            <h3 class="text-xs font-bold text-base-content truncate">Mary Atieno</h3>
-            <!-- Dynamic timestamp from the latest message or default fallback -->
-            <span class="text-[10px] text-base-content/50">
-                {{ end($messages)['time'] ?? '10:42 AM' }}
-            </span>
-        </div>
-        <span class="font-mono text-[10px] font-semibold text-primary block">#T-00104</span>
-
-        <!-- Dynamic message text preview -->
-        <p class="text-xs text-base-content/70 truncate mt-0.5">
-            {{ end($messages)['text'] ?? "Support Needed" }}
-        </p>
-    </div>
-</button>
+                <button class="w-full p-3 text-left flex items-start gap-3 bg-base-200/60 border-l-4 border-primary transition-all">
+                    <div class="avatar online shrink-0">
+                        <div class="w-10 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
+                            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRoeZOBBidNgNcGNpV6v4cwHkHPfhp98-J75q0kd2z1Qv9Da0Cimld3WA&s=10" alt="profile" />
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xs font-bold text-base-content truncate">Mary Atieno</h3>
+                            <span class="text-[10px] text-base-content/50">
+                                {{ end($messages)['time'] ?? '10:42 AM' }}
+                            </span>
+                        </div>
+                        <span class="font-mono text-[10px] font-semibold text-primary block">#T-00104</span>
+                        <p class="text-xs text-base-content/70 truncate mt-0.5">
+                            {{ end($messages)['text'] ?: (end($messages)['attachment'] ? '[Attachment]' : 'Support Needed') }}
+                        </p>
+                    </div>
+                </button>
             </div>
         </div>
 
         <!-- Main Chat Window -->
         <div class="flex-1 bg-base-100 rounded-box border border-base-200 shadow-sm flex flex-col overflow-hidden">
-            <!-- Chat Top Bar / Header -->
+            <!-- Chat Header -->
             <div class="p-4 border-b border-base-200 flex items-center justify-between bg-base-100">
                 <div class="flex items-center gap-3">
                     <div class="avatar online">
@@ -190,7 +203,6 @@ new class extends Component
                     </div>
                 </div>
 
-                <!-- Action Badges -->
                 <div class="flex items-center gap-2">
                     <span class="badge badge-warning text-white font-semibold text-xs hidden sm:inline-flex">HIGH PRIORITY</span>
                     <span class="badge badge-outline text-xs">IN PROGRESS</span>
@@ -224,8 +236,25 @@ new class extends Component
                                 Mary Atieno
                                 <time class="text-[10px] opacity-50 ml-1">{{ $msg['time'] }}</time>
                             </div>
-                            <div class="chat-bubble chat-bubble-neutral text-xs leading-relaxed">
-                                {{ $msg['text'] }}
+                            <div class="chat-bubble chat-bubble-neutral text-xs leading-relaxed space-y-2">
+                                @if(!empty($msg['text']))
+                                    <p>{{ $msg['text'] }}</p>
+                                @endif
+
+                                @if(!empty($msg['attachment']))
+                                    <div class="pt-1">
+                                        @if(preg_match('/\.(jpg|jpeg|png|gif|webp)$/i', $msg['attachment']))
+                                            <a href="{{ $msg['attachment'] }}" target="_blank">
+                                                <img src="{{ $msg['attachment'] }}" class="max-w-xs rounded border border-base-300 hover:opacity-90 transition-opacity" />
+                                            </a>
+                                        @else
+                                            <a href="{{ $msg['attachment'] }}" target="_blank" class="flex items-center gap-2 underline text-primary font-medium">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                                                View Attachment
+                                            </a>
+                                        @endif
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     @else
@@ -240,8 +269,25 @@ new class extends Component
                                 Support Admin (You)
                                 <time class="text-[10px] opacity-50 ml-1">{{ $msg['time'] }}</time>
                             </div>
-                            <div class="chat-bubble chat-bubble-primary text-white text-xs leading-relaxed">
-                                {{ $msg['text'] }}
+                            <div class="chat-bubble chat-bubble-primary text-white text-xs leading-relaxed space-y-2">
+                                @if(!empty($msg['text']))
+                                    <p>{{ $msg['text'] }}</p>
+                                @endif
+
+                                @if(!empty($msg['attachment']))
+                                    <div class="pt-1">
+                                        @if(preg_match('/\.(jpg|jpeg|png|gif|webp)$/i', $msg['attachment']))
+                                            <a href="{{ $msg['attachment'] }}" target="_blank">
+                                                <img src="{{ $msg['attachment'] }}" class="max-w-xs rounded border border-white/20 hover:opacity-90 transition-opacity" />
+                                            </a>
+                                        @else
+                                            <a href="{{ $msg['attachment'] }}" target="_blank" class="flex items-center gap-2 underline text-white font-medium">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                                                View Attachment
+                                            </a>
+                                        @endif
+                                    </div>
+                                @endif
                             </div>
                             <div class="chat-footer text-[10px] opacity-50 mt-1">Delivered</div>
                         </div>
@@ -253,14 +299,24 @@ new class extends Component
                 @endforelse
             </div>
 
-            <!-- Chat Input Footer -->
-            <div class="p-3 bg-base-100 border-t border-base-200">
+            <!-- Input Footer -->
+            <div class="p-3 bg-base-100 border-t border-base-200 space-y-2">
+                <!-- Preview chosen file before sending -->
+                @if ($attachment)
+                    <div class="flex items-center justify-between bg-base-200 px-3 py-1.5 rounded-lg text-xs">
+                        <span class="truncate max-w-xs font-mono text-base-content/80">{{ $attachment->getClientOriginalName() }}</span>
+                        <button type="button" wire:click="$set('attachment', null)" class="text-error font-bold text-xs hover:underline">Remove</button>
+                    </div>
+                @endif
+
                 <form wire:submit.prevent="sendAdminReply" class="flex items-center gap-2">
-                    <button type="button" class="btn btn-ghost btn-circle btn-sm text-base-content/60" title="Attach File">
+                    <!-- File input label -->
+                    <label class="btn btn-ghost btn-circle btn-sm text-base-content/60 hover:text-primary cursor-pointer" title="Attach File">
+                        <input type="file" wire:model="attachment" class="hidden" />
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                         </svg>
-                    </button>
+                    </label>
 
                     <input
                         wire:model="adminReply"
@@ -269,9 +325,10 @@ new class extends Component
                         class="input input-sm input-bordered flex-1 text-xs focus:outline-none focus:border-primary"
                     />
 
-                    <button type="submit" class="btn btn-sm btn-primary text-white font-semibold gap-1">
-                        <span>Send</span>
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <button type="submit" class="btn btn-sm btn-primary text-white font-semibold gap-1" wire:loading.attr="disabled">
+                        <span wire:loading.remove wire:target="sendAdminReply">Send</span>
+                        <span wire:loading wire:target="sendAdminReply" class="loading loading-spinner loading-xs"></span>
+                        <svg wire:loading.remove wire:target="sendAdminReply" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9-7-9-7-9 7 9 7zm0 0v-8" />
                         </svg>
                     </button>
