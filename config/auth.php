@@ -46,6 +46,11 @@ return [
         'driver' => 'session',
         'provider' => 'support',
     ],
+
+     'solves' => [
+        'driver' => 'session',
+        'provider' => 'solves',
+    ],
     ],
 
     /*
@@ -74,6 +79,11 @@ return [
         'support' => [
         'driver' => 'eloquent',
         'model' => App\Models\SupportTeam::class
+    ],
+
+    'solves' => [
+        'driver' => 'eloquent',
+        'model' => App\Models\SolveUser::class
     ],
 
         // 'users' => [

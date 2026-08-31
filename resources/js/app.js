@@ -7,3 +7,25 @@
  */
 
 import './echo';
+
+import { createInertiaApp } from '@inertiajs/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+const queryClient = new QueryClient()
+
+
+createInertiaApp({
+      pages: {
+        path: './Pages',
+        extension: '.tsx',
+        lazy: true,
+        transform: (name, page) => name.replace('/', '-'),
+    },
+
+      resolve: name => {
+        const pages = import.meta.glob('./Pages/**/*.tsx')
+        return pages[`./Pages/${name}.tsx`]()
+    },
+})
+
+
+

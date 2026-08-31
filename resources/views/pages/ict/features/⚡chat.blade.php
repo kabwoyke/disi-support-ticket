@@ -127,6 +127,7 @@ new class extends Component
             'text' => $this->adminReply,
             'attachment' => $attachmentUrl,
             'time' => $savedMessage->created_at->timezone('Africa/Nairobi')->format('g:i A'),
+            
         ];
 
         $this->reset(['adminReply', 'attachment']);

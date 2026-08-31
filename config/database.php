@@ -64,6 +64,20 @@ return [
             ]) : [],
         ],
 
+        'mysql_solves' => [ // Your custom secondary connection
+        'driver' => env('DB_SOLVES_CONNECTION', 'mysql'),
+        'host' => env('DB_SOLVES_HOST', '127.0.0.1'),
+        'port' => env('DB_SOLVES_PORT', '3306'),
+        'database' => env('DB_SOLVES_DATABASE', 'forge'),
+        'username' => env('DB_SOLVES_USERNAME', 'forge'),
+        'password' => env('DB_SOLVES_PASSWORD', ''),
+        'charset' => 'utf8mb4',
+        'collation' => 'utf8mb4_unicode_ci',
+        'prefix' => '',
+        'strict' => true,
+        'engine' => null,
+    ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),
