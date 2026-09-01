@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\SolveAuthController;
@@ -7,6 +8,7 @@ use App\Models\Question;
 use App\Models\SolveUser;
 use App\Models\User;
 use Cloudstudio\Ollama\Facades\Ollama;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -55,18 +57,64 @@ Route::get("/disi-solves/activity" , function(){
     return Inertia::render("Activity");
 })->name('solves-activity')->middleware('auth:solves');
 
-Route::get("/disi-solves/dashboard" , function(){
-    $questions = Question::with('author')
-            ->orderBy('created_at', 'desc')
-            ->get();
+Route::get("/disi-solves/dashboard", function (Request $request) {
+    /** @var \App\Models\SolveUser|null $user */
+    $user = auth('solves')->user();
+    $isAdmin = $user && $user->role === 'admin';
 
-        $userCount = SolveUser::all()->count();
-        $pendingApprovals = count(Question::where('status' , 'pending')->get());
-        return Inertia::render('Dashboard', [
-            'questions' => $questions,
-            'userCount' => $userCount,
-            'pendingApprovals' => $pendingApprovals
-        ]);
+    $query = Question::with('author');
 
-})->name('solves-dashboard')->middleware("auth:solves");;
+    // 1. Base Status Scope: Admins can view all statuses; non-admins are restricted to 'approved'
+    if (!$isAdmin) {
+        $query->where('status', 'approved');
+    } elseif ($request->filled('status') && $request->input('status') !== 'all') {
+        // Admins filtering by a specific status (e.g., 'pending' or 'rejected')
+        $query->where('status', $request->input('status'));
+    }
+
+    // 2. Search Filter (Title & Description)
+    if ($request->filled('search')) {
+        $search = $request->input('search');
+        $query->where(function ($q) use ($search) {
+            $q->where('title', 'like', "%{$search}%")
+              ->orWhere('description', 'like', "%{$search}%");
+        });
+    }
+
+    // 3. Category Filter
+    if ($request->filled('category') && $request->input('category') !== 'all') {
+        $query->where('category', $request->input('category'));
+    }
+
+    // 4. Sorting Logic
+    switch ($request->input('sort', 'recent')) {
+        case 'views':
+            $query->orderBy('views', 'desc');
+            break;
+        case 'trending':
+            $query->orderBy('views', 'desc')->orderBy('created_at', 'desc');
+            break;
+        case 'recent':
+        default:
+            $query->orderBy('created_at', 'desc');
+            break;
+    }
+
+    return Inertia::render('Dashboard', [
+        'questions' => $query->get(),
+        'filters' => [
+            'search' => $request->input('search', ''),
+            'category' => $request->input('category', 'all'),
+            'status' => $request->input('status', $isAdmin ? 'all' : 'approved'),
+            'sort' => $request->input('sort', 'recent'),
+        ],
+        'userCount' => SolveUser::count(),
+        'pendingApprovals' => Question::where('status', 'pending')->count(),
+    ]);
+})->name('solves-dashboard')->middleware("auth:solves");
+
+Route::post("/disi-solves/admin/post" , [AdminController::class , 'store_question_answer'] )->name('solves-admin-store')->middleware('auth:solves');
+Route::put("/disi-solves/admin/{id}/approve" , [AdminController::class , 'approve_question'])->name('solves-admin-approve')->middleware('auth:solves');
+Route::put("/disi-solves/admin/{id}/reject" , [AdminController::class , 'reject_question'])->name('solves-admin-reject')->middleware('auth:solves');
+Route::get("/disi-solves/{id}/details" , [AdminController::class , 'detail_page'])->name('solves-detail')->middleware('auth:solves');
 

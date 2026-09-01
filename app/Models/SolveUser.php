@@ -50,4 +50,9 @@ class SolveUser extends Authenticatable
     }
 
 
+    public function answer(){
+        $this->hasMany(Answer::class , "created_by");
+    }
+
+
 }

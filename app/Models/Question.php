@@ -12,7 +12,6 @@ class Question extends Model
 
     protected $table = 'questions';
 
-    public $timestamps = false;
 
     protected $fillable = [
         'title',
@@ -35,5 +34,9 @@ class Question extends Model
     public function author()
     {
         return $this->belongsTo(SolveUser::class, 'created_by');
+    }
+
+    public function answer(){
+        return $this->hasMany(Answer::class);
     }
 }
