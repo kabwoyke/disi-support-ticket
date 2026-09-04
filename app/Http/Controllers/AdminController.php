@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Question;
+use App\Models\SolveUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class AdminController extends Controller
@@ -103,8 +106,10 @@ public function detail_page(Request $request, $id)
    $questionDetail = Question::with([
         'author',
         // Include 'author_id' (or 'user_id') so Eloquent can resolve the relation
-        'answer'
+        'answer.author'
     ])->findOrFail($id);
+
+    // dd($questionDetail->answer[0]->author->first_name);
 
     // dd($questionDetail);
     // Increment view count
@@ -114,6 +119,94 @@ public function detail_page(Request $request, $id)
         'question' => $questionDetail,
     ]);
 }
+
+public function render_users_page()
+{
+    $users = SolveUser::select([
+        'id',
+        'username',
+        'first_name',
+        'last_name',
+        'role',
+        'supervisor_type',
+        'created_at',
+    ])->get();
+
+    return Inertia::render('UserManagement', [
+        'users' => $users,
+    ]);
+}
+
+
+/**
+     * Store a newly created user in storage.
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'username'   => ['required', 'string', 'min:3', 'max:50', 'unique:mysql_solves.solve_users,username'],
+            'password'   => ['required', 'string', 'min:6'],
+            'first_name' => ['required', 'string', 'max:100'],
+            'last_name'  => ['required', 'string', 'max:100'],
+            'role'       => ['required', Rule::in(['user', 'supervisor', 'admin'])],
+            'supervisor_type' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        SolveUser::create([
+            'username'        => $validated['username'],
+            'password'        => Hash::make($validated['password']),
+            'first_name'      => $validated['first_name'],
+            'last_name'       => $validated['last_name'],
+            'role'            => $validated['role'],
+            'supervisor_type' => $validated['supervisor_type'] ?? null,
+        ]);
+
+        return redirect()->back()->with('success', 'User created successfully.');
+    }
+
+
+    public function update(Request $request, $id)
+    {
+        $user = SolveUser::findOrFail($id);
+
+        $validated = $request->validate([
+            'username'   => ['required', 'string', 'min:3', 'max:50', Rule::unique('mysql_solves.solve_users', 'username')->ignore($user->id)],
+            'password'   => ['nullable', 'string', 'min:6'],
+            'first_name' => ['required', 'string', 'max:100'],
+            'last_name'  => ['required', 'string', 'max:100'],
+            'role'       => ['required', Rule::in(['user', 'supervisor', 'admin'])],
+            'supervisor_type' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $updateData = [
+            'username'        => $validated['username'],
+            'first_name'      => $validated['first_name'],
+            'last_name'       => $validated['last_name'],
+            'role'            => $validated['role'],
+            'supervisor_type' => $validated['supervisor_type'] ?? null,
+        ];
+
+        // Only update the password if a new one is provided
+        if (!empty($validated['password'])) {
+            $updateData['password'] = Hash::make($validated['password']);
+        }
+
+        $user->update($updateData);
+
+        return redirect()->back()->with('success', 'User updated successfully.');
+    }
+
+    /**
+     * Remove the specified user from storage.
+     */
+    public function destroy($id)
+    {
+        $user = SolveUser::findOrFail($id);
+
+        $user->delete();
+
+        return redirect()->back()->with('success', 'User deleted successfully.');
+    }
 }
 
 

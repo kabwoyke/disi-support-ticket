@@ -1,4 +1,4 @@
-import { JSX, useRef } from "react";
+import { useRef } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { RaiseIssueModal } from "@/components/raise-issue-modal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +25,6 @@ export interface Answer {
   answer_text: string;
   status: "pending" | "approved" | "rejected";
   attachment?: string | null;
-  author:Author;
   created_at?: string;
 }
 
@@ -64,41 +63,14 @@ interface AnswerFormData {
   attachment: File | null;
 }
 
-const statusStyles: Record<Answer["status"], string> = {
-  pending: "bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300",
-  approved: "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300",
-  rejected: "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300",
-};
-
-const statusIcons: Record<Answer["status"], JSX.Element> = {
-  pending: <Clock className="mr-1 h-3 w-3" />,
-  approved: <Check className="mr-1 h-3 w-3" />,
-  rejected: <X className="mr-1 h-3 w-3" />,
-};
-
 export default function QuestionDetail() {
     const q = usePage<PageProps>().props
     const fileInputRef = useRef<HTMLInputElement>(null)
-    const isAdmin = q.solves?.user?.role === "admin"
 
     const answerForm = useForm<AnswerFormData>({
       answer_text: "",
       attachment: null,
     })
-
-    // Adjust these routes to match whatever your web.php defines for
-    // moderating an individual answer, e.g.:
-    // Route::patch('/disi-solves/answers/{answer}/approve', ...)
-    // Route::patch('/disi-solves/answers/{answer}/reject', ...)
-    const handleApprove = (answerId?: number) => {
-      if (!answerId) return;
-      router.patch(`/disi-solves/answers/${answerId}/approve`, {}, { preserveScroll: true });
-    };
-
-    const handleReject = (answerId?: number) => {
-      if (!answerId) return;
-      router.patch(`/disi-solves/answers/${answerId}/reject`, {}, { preserveScroll: true });
-    };
 
     const handleAnswerSubmit = (e: React.FormEvent) => {
       e.preventDefault()
@@ -200,7 +172,7 @@ export default function QuestionDetail() {
 
                 <Badge variant="secondary" className="flex items-center">
                   <MessageCircle className="mr-1 h-3 w-3" />
-                  {q.question.answer?.length ?? 0} {q.question.answer?.length === 1 ? "answer" : "answers"}
+                  1 answers
                 </Badge>
               </div>
             </CardContent>
@@ -212,79 +184,70 @@ export default function QuestionDetail() {
               <CardTitle>Answers ({q.question.answer?.length})</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {q.question.answer && q.question.answer.length > 0 ? (
-                  q.question.answer.map((answer) => (
-                    <div
-                      key={answer.id ?? Math.random()}
-                      className="border border-border rounded-lg p-4"
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <Badge className={statusStyles[answer.status]}>
-                          {statusIcons[answer.status]}
-                          {answer.status.charAt(0).toUpperCase() + answer.status.slice(1)}
-                        </Badge>
-
-                        {/* Admin Action Controls — only shown for answers awaiting review */}
-                        {isAdmin && answer.status === "pending" && (
-                          <div className="flex items-center space-x-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
-                              onClick={() => handleApprove(answer.id)}
-                            >
-                              <Check className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                              onClick={() => handleReject(answer.id)}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="prose dark:prose-invert mb-4">
-                        <p className="text-foreground whitespace-pre-wrap">
-                          {answer.answer_text}
-                        </p>
-
-                        {answer.attachment && (
-                          <div className="mt-4">
-                            <img
-                              src={
-                                answer.attachment.startsWith("http")
-                                  ? answer.attachment
-                                  : `/storage/${answer.attachment}`
-                              }
-                              alt="Answer attachment"
-                              className="max-w-full h-auto rounded-lg border max-h-[300px]"
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                        <div className="flex items-center space-x-1">
-                          <User className="h-4 w-4" />
-                          <span>{answer.author.first_name}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Clock className="h-4 w-4" />
-                          <span>{moment(answer.created_at).fromNow()}</span>
-                        </div>
-                      </div>
+              <div className="space-y-6">
+                <div className="border-b border-border last:border-b-0 pb-6 last:pb-0">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300">
+                        <Clock className="mr-1 h-3 w-3" />
+                        Pending
+                      </Badge>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-center text-muted-foreground py-6">
-                    No answers yet.
-                  </p>
-                )}
+
+                    {/* Admin Action Preview Controls */}
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {q.question.answer?.map((answer) => (
+  <div key={answer.id ?? Math.random()} className="prose dark:prose-invert mb-4">
+    <p className="text-foreground whitespace-pre-wrap">
+      {answer.answer_text}
+    </p>
+
+    {/* Conditionally render the image only when an attachment exists */}
+    {answer.attachment && (
+      <div className="mt-4">
+        <img
+          src={
+            answer.attachment.startsWith("http")
+              ? answer.attachment
+              : `/storage/${answer.attachment}`
+          }
+          alt="Answer attachment"
+          className="max-w-full h-auto rounded-lg border max-h-[300px]"
+        />
+      </div>
+    )}
+  </div>
+))}
+
+
+                  <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                    <div className="flex items-center space-x-1">
+                      <User className="h-4 w-4" />
+                      <span>Jane Smith</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <Clock className="h-4 w-4" />
+                      <span>1h ago</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>

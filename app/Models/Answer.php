@@ -8,6 +8,9 @@ class Answer extends Model
 {
     //
 
+    protected $connection = 'mysql_solves';
+    protected $table = 'answers';
+
     protected $fillable = [
         'question_id',
         'answer_text',
@@ -22,6 +25,6 @@ class Answer extends Model
     }
 
     public function author(){
-        $this->belongsTo(SolveUser::class , "created_by");
+        return $this->belongsTo(SolveUser::class , "created_by");
     }
 }

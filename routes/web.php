@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AnswerController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\SolveAuthController;
@@ -117,4 +118,13 @@ Route::post("/disi-solves/admin/post" , [AdminController::class , 'store_questio
 Route::put("/disi-solves/admin/{id}/approve" , [AdminController::class , 'approve_question'])->name('solves-admin-approve')->middleware('auth:solves');
 Route::put("/disi-solves/admin/{id}/reject" , [AdminController::class , 'reject_question'])->name('solves-admin-reject')->middleware('auth:solves');
 Route::get("/disi-solves/{id}/details" , [AdminController::class , 'detail_page'])->name('solves-detail')->middleware('auth:solves');
+Route::get("/disi-solves/admin/user-management" , [AdminController::class , 'render_users_page'])->name('solves-usr-mgmt')->middleware('auth:solves');
+
+
+Route::post('/disi-solves/questions/{question}/answers', [AnswerController::class, 'store'])
+    ->name('solves.answers.store')->middleware('auth:solves');
+
+Route::post('/disi-solves/admin/add/users', [AdminController::class, 'store'])->name('solves.users.store');
+Route::put('/disi-solves/admin/{id}', [AdminController::class, 'update'])->name('solves.users.update');
+Route::delete('/disi-solves/admin/users/{id}', [AdminController::class, 'destroy'])->name('solves.users.destroy');
 

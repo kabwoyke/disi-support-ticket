@@ -20,6 +20,17 @@ import { PageProps } from "@/Pages/Dashboard";
 export function Sidebar() {
     const { solves, questions = [] } = usePage<PageProps>().props;
       const user = solves?.user;
+      const currentUrl = usePage().url; // e.g. "/disi-solves/dashboard"
+
+      const isActive = (path: string) =>
+        currentUrl === path || currentUrl.startsWith(`${path}/`);
+
+      const navButtonClass = (path: string, extra = "") =>
+        `w-full justify-start h-11 px-4 ${
+          isActive(path)
+            ? "bg-lime-green/10 text-dark-green dark:text-lime-green font-medium"
+            : ""
+        } ${extra}`;
   return (
     <div className="fixed left-0 top-0 h-full w-64 bg-card border-r border-border shadow-lg z-30">
       {/* Logo Section */}
@@ -46,15 +57,15 @@ export function Sidebar() {
       </div>
 
       {/* User Info */}
-      <div className="p-4 border-b border-border">
+      <div className="p-5 border-b border-border">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-lime-green rounded-full flex items-center justify-center">
+          <div className="w-8 h-8 bg-lime-green rounded-full flex items-center justify-center shrink-0">
             <span className="text-dark-green font-semibold text-sm">
               {user?.first_name && user.first_name[0].toUpperCase()}{user?.last_name && user.last_name[0].toUpperCase()}
             </span>
           </div>
           <div>
-            <p className="font-medium text-sm text-foreground">
+            <p className="font-medium text-sm text-foreground mb-1">
               {user?.first_name} {user?.last_name}
             </p>
             <Badge className="bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300">
@@ -65,11 +76,11 @@ export function Sidebar() {
       </div>
 
       {/* Navigation Menu */}
-      <nav className="p-4 space-y-2">
-        <Link href={"/disi-solves/dashboard"}>
+      <nav className="p-4 space-y-3">
+        <Link href={"/disi-solves/dashboard"} className="block">
         <Button
           variant="ghost"
-          className="w-full justify-start bg-lime-green/10 text-dark-green dark:text-lime-green font-medium"
+          className={navButtonClass("/disi-solves/dashboard")}
           data-testid="button-dashboard"
         >
           <Home className="mr-3 h-4 w-4" />
@@ -77,10 +88,10 @@ export function Sidebar() {
         </Button>
         </Link>
 
-        <Link href={"/disi-solves/dashboard"} >
+        <Link href={"/disi-solves/dashboard"} className="block">
         <Button
           variant="ghost"
-          className="w-full justify-start"
+          className={navButtonClass("/disi-solves/dashboard/")}
           data-testid="button-browse-all"
         >
           <Search className="mr-3 h-4 w-4" />
@@ -93,7 +104,7 @@ export function Sidebar() {
             user?.role === "admin" &&
         <Button
           variant="ghost"
-          className="w-full justify-start"
+          className="w-full justify-start h-11 px-4"
           data-testid="button-analytics"
         >
           <BarChart3 className="mr-3 h-4 w-4" />
@@ -103,21 +114,23 @@ export function Sidebar() {
 
     {
         user?.role === "admin" &&
+        <Link href={"/disi-solves/admin/user-management"} className="block">
         <Button
           variant="ghost"
-          className="w-full justify-start"
+          className={navButtonClass("/disi-solves/admin/user-management")}
           data-testid="button-user-management"
         >
           <Users className="mr-3 h-4 w-4" />
           User Management
         </Button>
+        </Link>
 }
 
-        <Link href="/disi-solves/activity" className="w-full">
+        <Link href="/disi-solves/activity" className="block w-full">
         <Button
 
           variant="ghost"
-          className="w-full justify-start"
+          className={navButtonClass("/disi-solves/activity")}
           data-testid="button-my-activity"
         >
           <History className="mr-3 h-4 w-4" />
@@ -127,7 +140,7 @@ export function Sidebar() {
 
         <Button
           variant="ghost"
-          className="w-full justify-start bg-lime-green/10 text-lime-green hover:bg-lime-green/20"
+          className="w-full justify-start h-11 px-4 bg-lime-green/10 text-lime-green hover:bg-lime-green/20"
           data-testid="button-raise-issue"
         >
           <Plus className="mr-3 h-4 w-4" />
@@ -141,7 +154,7 @@ export function Sidebar() {
         <Button
         type="submit"
           variant="ghost"
-          className="w-full justify-start text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+          className="w-full justify-start h-11 px-4 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
         >
           <LogOut className="mr-3 h-4 w-4" />
           Logout
